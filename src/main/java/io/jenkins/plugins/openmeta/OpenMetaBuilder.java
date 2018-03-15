@@ -1,4 +1,4 @@
-package io.jenkins.plugins.sample;
+package io.jenkins.plugins.openmeta;
 
 import hudson.*;
 import hudson.model.*;
