@@ -8,11 +8,13 @@ import hudson.tasks.junit.JUnitResultArchiver;
 import hudson.util.FormValidation;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
 import java.util.logging.Level;
@@ -158,6 +160,30 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
                 catch (NumberFormatException e)
                 {
                     return FormValidation.error("Max Configs must be a number");
+                }
+            }
+            return FormValidation.ok();
+        }
+
+        public FormValidation doCheckModelName(
+                @AncestorInPath AbstractProject project,
+                @QueryParameter String value) throws IOException, InterruptedException {
+            if (project == null) {
+                return FormValidation.ok();
+            }
+            FormValidation exists = project.getSomeWorkspace().validateRelativePath(value, true, true);
+            if (!exists.equals(FormValidation.ok())) {
+                return exists;
+            }
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+            if (!value.endsWith(".mga")) {
+                // unfortunately, .mga does not have a magic number. hope for the best
+            } else {
+                project.getSomeWorkspace().child(value).copyTo(output);
+                String contents = output.toString("utf8");
+                if (contents.indexOf("<!DOCTYPE project SYSTEM \"mga") == -1) {
+                    return FormValidation.warning("Not a GME XME file");
                 }
             }
             return FormValidation.ok();
