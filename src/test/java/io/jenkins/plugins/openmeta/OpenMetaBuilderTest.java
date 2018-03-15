@@ -10,6 +10,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.io.File;
+
 public class OpenMetaBuilderTest {
 
     @Rule
@@ -31,7 +33,11 @@ public class OpenMetaBuilderTest {
     public void testBuild() throws Exception {
         FreeStyleProject project = jenkins.createFreeStyleProject();
         OpenMetaBuilder builder = new OpenMetaBuilder();
-        builder.setModelName(System.getenv("USERPROFILE") + "\\Documents\\openmeta-examples-and-templates\\value-aggregator\\value-aggregator.xme");
+        String testFile = System.getenv("USERPROFILE") + "\\Documents\\openmeta-examples-and-templates\\value-aggregator\\value-aggregator.xme";
+        if (!new File(testFile).canRead()) {
+            return;
+        }
+        builder.setModelName(testFile);
         project.getBuildersList().add(builder);
 
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
