@@ -1,0 +1,15 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+    <f:entry title="Model Name" field="modelName">
+        <f:textbox />
+    </f:entry>
+    <f:advanced>
+        <f:entry title="Exclude patterns" field="excludePatterns"
+                 description="Comma-delimited list of test names to skip">
+            <f:textbox />
+        </f:entry>
+        <f:entry title="Maximum number of configurations" field="maxConfigs">
+            <f:textbox />
+        </f:entry>
+    </f:advanced>
+</j:jelly>
