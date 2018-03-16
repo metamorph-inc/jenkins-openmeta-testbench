@@ -1,5 +1,6 @@
 package io.jenkins.plugins.openmeta;
 
+import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Label;
@@ -9,6 +10,7 @@ import org.jenkinsci.plugins.workflow.job.WorkflowRun;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
+import org.kohsuke.stapler.Stapler;
 
 import java.io.File;
 
@@ -17,7 +19,6 @@ public class OpenMetaBuilderTest {
     @Rule
     public JenkinsRule jenkins = new JenkinsRule();
 
-    final String name = "Bobby";
 
     @Test
     public void testConfigRoundtrip() throws Exception {
@@ -41,22 +42,25 @@ public class OpenMetaBuilderTest {
         project.getBuildersList().add(builder);
 
         FreeStyleBuild build = jenkins.buildAndAssertSuccess(project);
-        //jenkins.assertLogContains("Hello, " + name, build);
+
+        // new OpenMetaBuilder.DescriptorImpl().doCheckModelName(build.getProject(), testFile);
     }
 
-    //@Test
+    @Test
     public void testScriptedPipeline() throws Exception {
+        String testFile = System.getenv("USERPROFILE") + "\\Documents\\openmeta-examples-and-templates\\value-aggregator\\value-aggregator.xme";
         String agentLabel = "my-agent";
         jenkins.createOnlineSlave(Label.get(agentLabel));
         WorkflowJob job = jenkins.createProject(WorkflowJob.class, "test-scripted-pipeline");
         String pipelineScript
                 = "node {\n"
-                + "  openMetaTestBench modelName: '" + name + "'\n"
+                + "  openMetaTestBench modelName: '" + testFile.replace("\\", "\\\\") + "'\n"
                 + "}";
         job.setDefinition(new CpsFlowDefinition(pipelineScript, true));
+        if (!new File(testFile).canRead()) {
+            return;
+        }
         WorkflowRun completedBuild = jenkins.assertBuildStatusSuccess(job.scheduleBuild2(0));
-        String expectedString = "Hello, " + name + "!";
-       // jenkins.assertLogContains(expectedString, completedBuild);
     }
 
 }

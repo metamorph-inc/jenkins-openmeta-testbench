@@ -2,21 +2,24 @@ package io.jenkins.plugins.openmeta;
 
 import hudson.*;
 import hudson.model.*;
+import hudson.remoting.Callable;
 import hudson.remoting.ChannelClosedException;
+import hudson.remoting.Future;
 import hudson.tasks.CommandInterpreter;
 import hudson.tasks.junit.JUnitResultArchiver;
 import hudson.util.FormValidation;
 import hudson.tasks.Builder;
 import hudson.tasks.BuildStepDescriptor;
+import org.jenkinsci.remoting.RoleChecker;
 import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
 
 import javax.annotation.Nonnull;
 import javax.servlet.ServletException;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -82,7 +85,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
         }
         return "FOR /F \"skip=2 tokens=2,*\" %%A IN ('%SystemRoot%\\SysWoW64\\REG.exe query \"HKLM\\software\\META\" /v \"META_PATH\"') DO SET META_PATH=%%B\r\n" +
                 "\"%META_PATH%bin\\Python27\\Scripts\\python.exe\" \"%META_PATH%bin\\RunTestBenches.py\" " +
-                "\"" + modelName + "\"" + " -- -v --with-xunit --xunit-file=nosetests.xml " +
+                "\"" + modelName + "\"" + " -- -v --with-xunit --xunit-file=openmeta-testbenches-result.xml " +
                 excludes + "\r\n";
     }
 
@@ -109,21 +112,16 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
 
                 if (r != 0) {
                     run.setResult(Result.UNSTABLE);
-                    r = 0;
                 }
-                else {
-                    JUnitResultArchiver jUnitPublisher = new JUnitResultArchiver("nosetests.xml");
-                    jUnitPublisher.perform(run, filePath, launcher, taskListener);
-                }
+                JUnitResultArchiver jUnitPublisher = new JUnitResultArchiver("openmeta-testbenches-result.xml");
+                jUnitPublisher.perform(run, filePath, launcher, taskListener);
             } catch (IOException e) {
                 Util.displayIOException(e, listener);
                 Functions.printStackTrace(e, listener.fatalError("Command failed"));
             }
-
-            //return r==0;
         } finally {
             try {
-                if (false && script!=null) {
+                if (script != null) {
                     script.delete();
                 }
             } catch (IOException e) {
@@ -167,21 +165,51 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
 
         public FormValidation doCheckModelName(
                 @AncestorInPath AbstractProject project,
-                @QueryParameter String value) throws IOException, InterruptedException {
+                @QueryParameter String value) throws IOException, InterruptedException, ExecutionException {
             if (project == null) {
                 return FormValidation.ok();
             }
-            FormValidation exists = project.getSomeWorkspace().validateRelativePath(value, true, true);
+            FilePath workspace = project.getSomeWorkspace();
+            if (workspace == null) {
+                return FormValidation.ok();
+            }
+            FormValidation exists = workspace.validateRelativePath(value, true, true);
             if (!exists.equals(FormValidation.ok())) {
                 return exists;
             }
-            ByteArrayOutputStream output = new ByteArrayOutputStream();
 
-            if (!value.endsWith(".mga")) {
+            if (value.endsWith(".mga")) {
                 // unfortunately, .mga does not have a magic number. hope for the best
             } else {
-                project.getSomeWorkspace().child(value).copyTo(output);
-                String contents = output.toString("utf8");
+                final String absPath = workspace.child(value).absolutize().getRemote();
+                Future<String> check = project.getSomeWorkspace().getChannel().callAsync(new Callable<String, IOException>() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public void checkRoles(RoleChecker roleChecker) throws SecurityException {
+
+                    }
+
+                    @Override
+                    public String call() throws IOException {
+                        InputStreamReader is = new InputStreamReader(new FileInputStream(absPath), "UTF8");
+                        BufferedReader reader = new BufferedReader(is);
+                        try {
+                            String ret;
+                            ret = reader.readLine();
+                            ret += reader.readLine();
+                            ret += reader.readLine();
+                            ret += reader.readLine();
+                            return ret;
+                        }
+                        finally {
+                            reader.close();
+                        }
+                    }
+                });
+
+
+                String contents = check.get();
                 if (contents.indexOf("<!DOCTYPE project SYSTEM \"mga") == -1) {
                     return FormValidation.warning("Not a GME XME file");
                 }
