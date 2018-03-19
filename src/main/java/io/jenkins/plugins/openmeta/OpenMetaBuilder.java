@@ -46,8 +46,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
     }
 
     @DataBoundSetter
-    public void setModelName(String modelName)
-    {
+    public void setModelName(String modelName) {
         this.modelName = modelName;
     }
 
@@ -93,13 +92,13 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
     public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath filePath, @Nonnull Launcher launcher, @Nonnull TaskListener taskListener) throws InterruptedException, IOException {
         FilePath ws = filePath;
         TaskListener listener = taskListener;
-        FilePath script=null;
+        FilePath script = null;
         int r = -1;
         try {
             try {
                 script = createScriptFile(ws);
             } catch (IOException e) {
-                Util.displayIOException(e,listener);
+                Util.displayIOException(e, listener);
                 Functions.printStackTrace(e, listener.fatalError("Could not write script file"));
                 //return false;
                 run.setResult(Result.FAILURE);
@@ -125,7 +124,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
                     script.delete();
                 }
             } catch (IOException e) {
-                if (r==-1 && e.getCause() instanceof ChannelClosedException) {
+                if (r == -1 && e.getCause() instanceof ChannelClosedException) {
                     // JENKINS-5073
                     // r==-1 only when the execution of the command resulted in IOException,
                     // and we've already reported that error. A common error there is channel
@@ -135,7 +134,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
                     // that this suppressing of the error would be justified
                     LOGGER.log(Level.FINE, "Script deletion failed", e);
                 } else {
-                    Util.displayIOException(e,listener);
+                    Util.displayIOException(e, listener);
                     Functions.printStackTrace(e, listener.fatalError("Could not delete " + script));
                 }
             } catch (Exception e) {
@@ -150,13 +149,10 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
 
         public FormValidation doCheckMaxConfigs(@QueryParameter String maxConfigs)
                 throws IOException, ServletException {
-            if (!maxConfigs.equals(""))
-            {
+            if (!maxConfigs.equals("")) {
                 try {
                     Integer.parseInt(maxConfigs);
-                }
-                catch (NumberFormatException e)
-                {
+                } catch (NumberFormatException e) {
                     return FormValidation.error("Max Configs must be a number");
                 }
             }
@@ -166,7 +162,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
         public FormValidation doCheckModelName(
                 @AncestorInPath AbstractProject project,
                 @QueryParameter String value) throws IOException, InterruptedException, ExecutionException {
-            if (project == null) {
+            if (project == null || value.equals("")) {
                 return FormValidation.ok();
             }
             FilePath workspace = project.getSomeWorkspace();
@@ -182,31 +178,7 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
                 // unfortunately, .mga does not have a magic number. hope for the best
             } else {
                 final String absPath = workspace.child(value).absolutize().getRemote();
-                Future<String> check = project.getSomeWorkspace().getChannel().callAsync(new Callable<String, IOException>() {
-                    private static final long serialVersionUID = 1L;
-
-                    @Override
-                    public void checkRoles(RoleChecker roleChecker) throws SecurityException {
-
-                    }
-
-                    @Override
-                    public String call() throws IOException {
-                        InputStreamReader is = new InputStreamReader(new FileInputStream(absPath), "UTF8");
-                        BufferedReader reader = new BufferedReader(is);
-                        try {
-                            String ret;
-                            ret = reader.readLine();
-                            ret += reader.readLine();
-                            ret += reader.readLine();
-                            ret += reader.readLine();
-                            return ret;
-                        }
-                        finally {
-                            reader.close();
-                        }
-                    }
-                });
+                Future<String> check = project.getSomeWorkspace().getChannel().callAsync(new XmeChecker(absPath));
 
 
                 String contents = check.get();
@@ -228,5 +200,35 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
         }
 
     }
+}
 
+class XmeChecker implements Callable<String, IOException> {
+    private static final long serialVersionUID = 1L;
+    private final String absPath;
+
+    public XmeChecker(String absPath)
+    {
+        this.absPath = absPath;
+    }
+
+    @Override
+    public void checkRoles(RoleChecker roleChecker) throws SecurityException {
+    }
+
+    @Override
+    public String call() throws IOException {
+        InputStreamReader is = new InputStreamReader(new FileInputStream(absPath), "UTF8");
+        BufferedReader reader = new BufferedReader(is);
+        try {
+            String ret;
+            ret = reader.readLine();
+            ret += reader.readLine();
+            ret += reader.readLine();
+            ret += reader.readLine();
+            return ret;
+        }
+        finally {
+            reader.close();
+        }
+    }
 }
