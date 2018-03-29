@@ -6,7 +6,7 @@
 
 ## Installation
 
-Download .hpi from [Appveyor build](https://ci.appveyor.com/project/Metamorph/jenkins-openmeta-testbench)
+Download .hpi from [Appveyor build](https://ci.appveyor.com/project/Metamorph/jenkins-openmeta-testbench) artifacts.
 
 Upload at http://my-jenkins/pluginManager/advanced, or install dependencies and place .hpi in $JENKINS_HOME/plugins and restart Jenkins.
 
