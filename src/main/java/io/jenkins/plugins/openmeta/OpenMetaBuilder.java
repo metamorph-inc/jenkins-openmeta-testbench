@@ -107,7 +107,15 @@ public class OpenMetaBuilder extends Builder implements SimpleBuildStep {
 
             try {
                 // envs(envVars)
-                r = launcher.launch().cmds("cmd.exe", "/c", script.getRemote()).stdout(listener).pwd(ws).start().join();
+                EnvVars envVars = run.getEnvironment(taskListener);
+                // on Windows environment variables are converted to all upper case,
+                // but no such conversions are done on Unix, so to make this cross-platform,
+                // convert variables to all upper cases.
+                for(Map.Entry<String,String> e : run.getCharacteristicEnvVars().entrySet()) {
+                    envVars.put(e.getKey(), e.getValue());
+                }
+
+                r = launcher.launch().cmds("cmd.exe", "/c", script.getRemote()).envs(envVars).stdout(listener).pwd(ws).start().join();
 
                 if (r != 0) {
                     run.setResult(Result.UNSTABLE);
